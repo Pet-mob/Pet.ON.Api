@@ -1,0 +1,50 @@
+trigger:
+  branches:
+    include:
+      - develop   # branch que dispara o pipeline, você pode mudar para master ou prod conforme necessidade
+
+variables:
+  buildConfiguration: 'Release'
+  environment: 'dev'
+  azureSubscription: 'AzureServiceConnection-Dev'    # Ajuste conforme sua Service Connection do Azure DevOps
+  webAppName: 'peton-api-dev'                           # Nome do Azure Web App para backend
+  resourceGroup: 'rg-peton-dev'                      # Opcional, caso queira usar no deploy
+
+pool:
+  vmImage: 'ubuntu-latest'   # mais moderno e leve, mas pode voltar para Windows se precisar PowerShell
+
+steps:
+- task: UseDotNet@2
+  displayName: 'Install .NET 8 SDK'
+  inputs:
+    packageType: 'sdk'
+    version: '8.x'
+
+- script: |
+    dotnet restore
+    dotnet build --configuration $(buildConfiguration)
+    dotnet publish --configuration $(buildConfiguration) -o $(Build.ArtifactStagingDirectory)/publish
+  displayName: 'Restore, Build, and Publish'
+
+- task: ArchiveFiles@2
+  displayName: 'Compress Published Files'
+  inputs:
+    rootFolderOrFile: '$(Build.ArtifactStagingDirectory)/publish'
+    includeRootFolder: false
+    archiveType: 'zip'
+    archiveFile: '$(Build.ArtifactStagingDirectory)/app.zip'
+    replaceExistingArchive: true
+
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish Build Artifacts'
+  inputs:
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+    ArtifactName: 'drop'
+
+- task: AzureWebApp@1
+  displayName: 'Deploy to Azure Web App (Dev)'
+  inputs:
+    azureSubscription: $(azureSubscription)
+    appType: 'webApp'    # backend .NET normalmente usa Windows, mas pode ser ajustado
+    appName: $(webAppName)
+    package: '$(Build.ArtifactStagingDirectory)/app.zip'
