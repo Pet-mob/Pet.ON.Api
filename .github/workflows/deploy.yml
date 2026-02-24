@@ -28,7 +28,7 @@ jobs:
       - name: Deploy na EC2 via SSH
         uses: appleboy/ssh-action@v1.0.0
         with:
-          host: SEU_IP_EC2
+          host: 18.230.92.28
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
@@ -36,3 +36,4 @@ jobs:
             docker stop peton-api-container || true
             docker rm peton-api-container || true
             docker run -d -p 80:80 --name peton-api-container petmob/peton-api:latest
+      
