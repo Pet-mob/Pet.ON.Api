@@ -36,8 +36,14 @@ jobs:
             docker stop peton-api-container || true
             docker rm peton-api-container || true
             docker run -d \
-              -p 80:80 \
-              -e ConnectionStrings__DefaultConnection="${{ secrets.DB_CONNECTION }}" \
-              --name peton-api-container \
-              petmob/peton-api:latest
+                -p 80:80 \
+                -e ConnectionStrings__DefaultConnection="${{ secrets.DB_CONNECTION }}" \
+                -e JwtSettings__SecretKey="${{ secrets.JWT_SECRET_KEY }}" \
+                -e JwtSettings__Issuer="${{ secrets.JWT_ISSUER }}" \
+                -e JwtSettings__Audience="${{ secrets.JWT_AUDIENCE }}" \
+                -e environmentVariables__EMAIL_USERNAME="${{ secrets.EMAIL_USERNAME }}" \
+                -e environmentVariables__EMAIL_PASSWORD="${{ secrets.EMAIL_PASSWORD }}" \
+                -e environmentVariables__EMAIL_FROM_NAME="${{ secrets.EMAIL_FROM_NAME }}" \
+                --name peton-api-container \
+                petmob/peton-api:latest
                   
