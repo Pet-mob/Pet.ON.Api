@@ -35,5 +35,9 @@ jobs:
             docker pull petmob/peton-api:latest
             docker stop peton-api-container || true
             docker rm peton-api-container || true
-            docker run -d -p 80:80 --name peton-api-container petmob/peton-api:latest
-      
+            docker run -d \
+              -p 80:80 \
+              -e ConnectionStrings__DefaultConnection="${{ secrets.DB_CONNECTION }}" \
+              --name peton-api-container \
+              petmob/peton-api:latest
+                  
