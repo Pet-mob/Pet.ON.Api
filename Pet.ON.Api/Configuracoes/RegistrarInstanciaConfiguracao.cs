@@ -29,8 +29,9 @@ namespace Pet.ON.Api.Configuracoes
                 var mapper = provider.GetRequiredService<IMapper>();
                 var configuration = provider.GetRequiredService<IConfiguration>();
                 var connection = configuration.GetConnectionString("AzureBlobConnection"); // certifique-se de que está igual ao appsettings.json
+                var storageService = provider.GetRequiredService<IStorageService>();
 
-                return new AnimalServico(animalRepositorio, mapper, configuration);
+                return new AnimalServico(animalRepositorio, mapper, configuration, storageService);
             });
 
             services.AddScoped<IServicosServico, ServicosServico>();
@@ -39,10 +40,9 @@ namespace Pet.ON.Api.Configuracoes
                 var mapper = provider.GetRequiredService<IMapper>();
                 var empresaServico = provider.GetRequiredService<IEmpresaServico>();
                 var usuarioRepositorio = provider.GetRequiredService<IUsuarioRepositorio>();
-                var configuration = provider.GetRequiredService<IConfiguration>();
-                var connection = configuration.GetConnectionString("AzureBlobConnection"); // certifique-se de que está igual ao appsettings.json
+                var storageService = provider.GetRequiredService<IStorageService>();
 
-                return new UsuarioServico(mapper, empresaServico, usuarioRepositorio, configuration);
+                return new UsuarioServico(mapper, empresaServico, usuarioRepositorio, storageService);
             });
 
             services.AddScoped<IEmpresaServico, EmpresaServico>(provider =>
@@ -50,9 +50,8 @@ namespace Pet.ON.Api.Configuracoes
                 var empresaRepositorio = provider.GetRequiredService<IEmpresaRepositorio>();
                 var mapper = provider.GetRequiredService<IMapper>();
                 var configuration = provider.GetRequiredService<IConfiguration>();
-                var connection = configuration.GetConnectionString("AzureBlobConnection"); // certifique-se de que está igual ao appsettings.json
-
-                return new EmpresaServico(empresaRepositorio, mapper, configuration);
+                var storageService = provider.GetRequiredService<IStorageService>();
+                return new EmpresaServico(empresaRepositorio, mapper, configuration, storageService);
             });
 
             #endregion

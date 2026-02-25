@@ -14,6 +14,7 @@ using Azure.Storage.Blobs.Models;
 using Microsoft.AspNetCore.Http;
 using System.IO;
 using Azure.Storage.Sas;
+using System.Linq;
 
 namespace Pet.ON.Service.Servico
 {
@@ -21,13 +22,13 @@ namespace Pet.ON.Service.Servico
     {
         private readonly IEmpresaRepositorio _empresaRepositorio;
         private readonly IMapper _mapper;
-        private readonly string _azureBlobConnection;
+        private readonly IStorageService _storageService;
 
-        public EmpresaServico(IEmpresaRepositorio empresaRepositorio, IMapper mapper, IConfiguration configuration)
+        public EmpresaServico(IEmpresaRepositorio empresaRepositorio, IMapper mapper, IConfiguration configuration, IStorageService storageService)
         {
             _empresaRepositorio = empresaRepositorio;
             _mapper = mapper;
-            _azureBlobConnection = configuration.GetConnectionString("AzureBlobConnection");
+            _storageService = storageService;
         }
 
         #region Atualizar
@@ -110,230 +111,133 @@ namespace Pet.ON.Service.Servico
 
         public async Task<List<BuscarLogosResDto>> ListarCapaEmpresa(int idEmpresaFiltro)
         {
+            if (idEmpresaFiltro <= 0)
+                return new List<BuscarLogosResDto>();
 
-            if (string.IsNullOrEmpty(_azureBlobConnection))
-                throw new InvalidOperationException("A string de conexão com o Azure Blob não foi configurada.");
+            var prefix = $"empresas/{idEmpresaFiltro}/";
 
-            string containerName = "imagens";
-            var blobServiceClient = new BlobServiceClient(_azureBlobConnection);
-            var containerClient = blobServiceClient.GetBlobContainerClient(containerName);
+            var urls = await _storageService.ListAsync(prefix);
 
-            var resultado = new List<BuscarLogosResDto>();
-
-            await foreach (var blobItem in containerClient.GetBlobsAsync())
-            {
-                string nomeBlob = blobItem.Name; // Ex: empresa-123.jpg                                                 
-
-                // Regex garante que extrai apenas arquivos que seguem o padrão "usuario_{id}.ext"
-                var match = Regex.Match(nomeBlob, @"empresa_(\d+)", RegexOptions.IgnoreCase);
-                if (match.Success && int.TryParse(match.Groups[1].Value, out int idEmpresaExtraido))
+            var capas = urls
+                .Where(url => url.Contains("/capa."))
+                .Select(url => new BuscarLogosResDto
                 {
-                    if (idEmpresaFiltro == 0 || idEmpresaFiltro == idEmpresaExtraido)
-                    {
-                        var blobClient = containerClient.GetBlobClient(nomeBlob);
-                        string urlComSas = ObterUrlComSas(blobClient);
+                    IdEmpresa = idEmpresaFiltro,
+                    Url = url
+                })
+                .ToList();
 
-                        resultado.Add(new BuscarLogosResDto
-                        {
-                            IdEmpresa = idEmpresaExtraido,
-                            Url = urlComSas
-                        });
-                    }
-                }
-            }
-
-            return resultado;
+            return capas;
         }
 
         private async Task<BuscarLogosResDto> BuscarLogoEmpresa(int idEmpresaFiltro)
         {
+            if (idEmpresaFiltro <= 0)
+                return null;
 
-            if (string.IsNullOrEmpty(_azureBlobConnection))
-                throw new InvalidOperationException("A string de conexão com o Azure Blob não foi configurada.");
+            var prefix = $"empresas/{idEmpresaFiltro}/";
 
-            string containerName = "logos-empresas";
-            var blobServiceClient = new BlobServiceClient(_azureBlobConnection);
-            var containerClient = blobServiceClient.GetBlobContainerClient(containerName);
+            var urls = await _storageService.ListAsync(prefix);
 
-            var resultado = new BuscarLogosResDto();
+            var logoUrl = urls.FirstOrDefault(u => u.Contains("/logo."));
 
-            await foreach (var blobItem in containerClient.GetBlobsAsync())
+            if (logoUrl == null)
+                return null;
+
+            return new BuscarLogosResDto
             {
-                string nomeBlob = blobItem.Name; // Ex: empresa-123.jpg                                                 
-
-                // Regex garante que extrai apenas arquivos que seguem o padrão "usuario_{id}.ext"
-                var match = Regex.Match(nomeBlob, @"empresa_(\d+)", RegexOptions.IgnoreCase);
-                if (match.Success && int.TryParse(match.Groups[1].Value, out int idEmpresaExtraido))
-                {
-                    if (idEmpresaFiltro == 0 || idEmpresaFiltro == idEmpresaExtraido)
-                    {
-                        var blobClient = containerClient.GetBlobClient(nomeBlob);
-                        string urlComSas = ObterUrlComSas(blobClient);
-
-                        resultado.IdEmpresa = idEmpresaExtraido;
-                        resultado.Url = urlComSas;
-                    }
-                }
-            }
-
-            return resultado;
+                IdEmpresa = idEmpresaFiltro,
+                Url = logoUrl
+            };
         }
+
         private async Task<BuscarLogosResDto> BuscarCapaEmpresa(int idEmpresaFiltro)
         {
+            if (idEmpresaFiltro <= 0)
+                return null;
 
-            if (string.IsNullOrEmpty(_azureBlobConnection))
-                throw new InvalidOperationException("A string de conexão com o Azure Blob não foi configurada.");
+            var prefix = $"empresas/{idEmpresaFiltro}/";
 
-            string containerName = "imagens";
-            var blobServiceClient = new BlobServiceClient(_azureBlobConnection);
-            var containerClient = blobServiceClient.GetBlobContainerClient(containerName);
+            var urls = await _storageService.ListAsync(prefix);
 
-            var resultado = new BuscarLogosResDto();
+            var capaUrl = urls.FirstOrDefault(u => u.Contains("/capa."));
 
-            await foreach (var blobItem in containerClient.GetBlobsAsync())
+            if (capaUrl == null)
+                return null;
+
+            return new BuscarLogosResDto
             {
-                string nomeBlob = blobItem.Name; // Ex: empresa-123.jpg                                                 
-
-                // Regex garante que extrai apenas arquivos que seguem o padrão "usuario_{id}.ext"
-                var match = Regex.Match(nomeBlob, @"empresa_(\d+)", RegexOptions.IgnoreCase);
-                if (match.Success && int.TryParse(match.Groups[1].Value, out int idEmpresaExtraido))
-                {
-                    if (idEmpresaFiltro == 0 || idEmpresaFiltro == idEmpresaExtraido)
-                    {
-                        var blobClient = containerClient.GetBlobClient(nomeBlob);
-                        string urlComSas = ObterUrlComSas(blobClient);
-
-                        resultado.IdEmpresa = idEmpresaExtraido;
-                        resultado.Url = urlComSas;
-                    }
-                }
-            }
-
-            return resultado;
+                IdEmpresa = idEmpresaFiltro,
+                Url = capaUrl
+            };
         }
-
         public async Task<List<BuscarLogosResDto>> ListarLogosEmpresa(int idEmpresaFiltro)
         {
+            if (idEmpresaFiltro <= 0)
+                return new List<BuscarLogosResDto>();
 
-            if (string.IsNullOrEmpty(_azureBlobConnection))
-                throw new InvalidOperationException("A string de conexão com o Azure Blob não foi configurada.");
+            var prefix = $"empresas/{idEmpresaFiltro}/";
 
-            string containerName = "logos-empresas";
-            var blobServiceClient = new BlobServiceClient(_azureBlobConnection);
-            var containerClient = blobServiceClient.GetBlobContainerClient(containerName);
+            var urls = await _storageService.ListAsync(prefix);
 
-            var resultado = new List<BuscarLogosResDto>();
-
-            await foreach (var blobItem in containerClient.GetBlobsAsync())
-            {
-                string nomeBlob = blobItem.Name; // Ex: empresa-123.jpg                                                 
-
-                // Regex garante que extrai apenas arquivos que seguem o padrão "usuario_{id}.ext"
-                var match = Regex.Match(nomeBlob, @"empresa_(\d+)", RegexOptions.IgnoreCase);
-                if (match.Success && int.TryParse(match.Groups[1].Value, out int idEmpresaExtraido))
+            var logos = urls
+                .Where(url => url.Contains("/logo."))
+                .Select(url => new BuscarLogosResDto
                 {
-                    if (idEmpresaFiltro == 0 || idEmpresaFiltro == idEmpresaExtraido)
-                    {
-                        var blobClient = containerClient.GetBlobClient(nomeBlob);
-                        string urlComSas = ObterUrlComSas(blobClient);
+                    IdEmpresa = idEmpresaFiltro,
+                    Url = url
+                })
+                .ToList();
 
-                        resultado.Add(new BuscarLogosResDto
-                        {
-                            IdEmpresa = idEmpresaExtraido,
-                            Url = urlComSas
-                        });
-                    }
-                }
-            }
-
-            return resultado;
+            return logos;
         }
-        public string ObterUrlComSas(BlobClient blobClient)
-        {
-            if (!blobClient.CanGenerateSasUri)
-                throw new InvalidOperationException("BlobClient não pode gerar SAS URI. Verifique se a chave foi criada corretamente.");
-
-            var sasBuilder = new BlobSasBuilder
-            {
-                BlobContainerName = blobClient.BlobContainerName,
-                BlobName = blobClient.Name,
-                Resource = "b",
-                ExpiresOn = DateTimeOffset.UtcNow.AddHours(1)
-            };
-
-            sasBuilder.SetPermissions(BlobSasPermissions.Read);
-
-            Uri sasUri = blobClient.GenerateSasUri(sasBuilder);
-            return sasUri.ToString();
-        }
-
         public async Task<string> EnviarLogoEmpresa(IFormFile arquivo, int idEmpresa)
         {
             if (arquivo == null || arquivo.Length == 0)
                 throw new ArgumentException("Arquivo inválido");
 
-            if (string.IsNullOrEmpty(_azureBlobConnection))
-                throw new InvalidOperationException("A string de conexão com o Azure Blob não foi configurada.");
+            if (idEmpresa <= 0)
+                throw new ArgumentException("Empresa inválida");
 
             string extensao = Path.GetExtension(arquivo.FileName)?.ToLower();
+
             if (string.IsNullOrEmpty(extensao) || !extensao.StartsWith("."))
-                throw new ArgumentException("Extensão do arquivo inválida.");
+                throw new ArgumentException("Extensão inválida.");
 
-            string nomeArquivo = $"empresa_{idEmpresa}{extensao}";
-            string containerName = "logos-empresas";
+            string key = $"empresas/{idEmpresa}/logo{extensao}";
 
-            var blobServiceClient = new BlobServiceClient(_azureBlobConnection);
-            var containerClient = blobServiceClient.GetBlobContainerClient(containerName);
+            using var stream = arquivo.OpenReadStream();
 
-            // Cria o container se ainda não existir
-            await containerClient.CreateIfNotExistsAsync(PublicAccessType.None);
-
-            var blobClient = containerClient.GetBlobClient(nomeArquivo);
-
-            // Envia e sobrescreve se já existir
-            using (var stream = arquivo.OpenReadStream())
-            {
-                await blobClient.UploadAsync(stream, overwrite: true);
-            }
-
-            // Retorna URL com SAS
-            return ObterUrlComSas(blobClient);
-
+            return await _storageService.UploadAsync(
+                key,
+                stream,
+                arquivo.ContentType
+            );
         }
+
         public async Task<string> EnviarCapaEmpresa(IFormFile arquivo, int idEmpresa)
         {
             if (arquivo == null || arquivo.Length == 0)
                 throw new ArgumentException("Arquivo inválido");
 
-            if (string.IsNullOrEmpty(_azureBlobConnection))
-                throw new InvalidOperationException("A string de conexão com o Azure Blob não foi configurada.");
+            if (idEmpresa <= 0)
+                throw new ArgumentException("Empresa inválida");
 
             string extensao = Path.GetExtension(arquivo.FileName)?.ToLower();
+
             if (string.IsNullOrEmpty(extensao) || !extensao.StartsWith("."))
-                throw new ArgumentException("Extensão do arquivo inválida.");
+                throw new ArgumentException("Extensão inválida.");
 
-            string nomeArquivo = $"empresa_{idEmpresa}{extensao}";
-            string containerName = "imagens";
+            string key = $"empresas/{idEmpresa}/capa{extensao}";
 
-            var blobServiceClient = new BlobServiceClient(_azureBlobConnection);
-            var containerClient = blobServiceClient.GetBlobContainerClient(containerName);
+            using var stream = arquivo.OpenReadStream();
 
-            // Cria o container se ainda não existir
-            await containerClient.CreateIfNotExistsAsync(PublicAccessType.None);
-
-            var blobClient = containerClient.GetBlobClient(nomeArquivo);
-
-            // Envia e sobrescreve se já existir
-            using (var stream = arquivo.OpenReadStream())
-            {
-                await blobClient.UploadAsync(stream, overwrite: true);
-            }
-
-            // Retorna URL com SAS
-            return ObterUrlComSas(blobClient);
-
+            return await _storageService.UploadAsync(
+                key,
+                stream,
+                arquivo.ContentType
+            );
         }
-
         public async Task<IEnumerable<BuscarEmpresaResDto>> BuscarEmpresasVinculadoAoUsuario(int idUsuario)
         {
             var empresas = await _empresaRepositorio.BuscarEmpresasVinculadoAoUsuario(idUsuario);

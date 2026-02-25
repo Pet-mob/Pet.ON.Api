@@ -15,6 +15,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Azure.Storage.Sas;
+using System.Linq;
 
 namespace Pet.ON.Service.Servico
 {
@@ -23,14 +24,14 @@ namespace Pet.ON.Service.Servico
         private readonly IMapper _mapper;
         private readonly IAnimalRepositorio _animalRepositorio;
         private readonly IConfiguration _configuration;
-        private readonly string _azureBlobConnection;
+        private readonly IStorageService _storageService;
 
-        public AnimalServico(IAnimalRepositorio animalRepositorio, IMapper mapper, IConfiguration configuration)
+        public AnimalServico(IAnimalRepositorio animalRepositorio, IMapper mapper, IConfiguration configuration, IStorageService storageService)
         {
             _animalRepositorio = animalRepositorio;
             _mapper = mapper;
             _configuration = configuration;
-            _azureBlobConnection = configuration.GetConnectionString("AzureBlobConnection");
+            _storageService = storageService;
         }
 
         public async Task<bool> Adicionar(AdicionarAnimalReqDto dto)
@@ -68,85 +69,54 @@ namespace Pet.ON.Service.Servico
 
         public async Task<BuscarFotoAnimalResDto> BuscarFotoAnimalPorUsuario(int idUsuarioFiltro)
         {
-            if (string.IsNullOrEmpty(_azureBlobConnection))
-                throw new InvalidOperationException("A string de conexão com o Azure Blob não foi configurada.");
+            if (idUsuarioFiltro <= 0)
+                return null;
 
-            string containerName = "fotos-animais";
-            var blobServiceClient = new BlobServiceClient(_azureBlobConnection);
-            var containerClient = blobServiceClient.GetBlobContainerClient(containerName);
+            var prefix = $"animais/usuario_{idUsuarioFiltro}/";
 
-            var resultado = new BuscarFotoAnimalResDto();
+            var urls = await _storageService.ListAsync(prefix);
 
-            await foreach (var blobItem in containerClient.GetBlobsAsync())
+            if (urls == null || !urls.Any())
+                return null;
+
+            // Pega a primeira foto encontrada
+            var url = urls.First();
+
+            var fileName = Path.GetFileNameWithoutExtension(url);
+
+            var match = Regex.Match(fileName, @"animal_(\d+)", RegexOptions.IgnoreCase);
+
+            int idAnimal = 0;
+
+            if (match.Success)
+                int.TryParse(match.Groups[1].Value, out idAnimal);
+
+            return new BuscarFotoAnimalResDto
             {
-                string nomeBlob = blobItem.Name; // Ex: usuario_5_animal_12.jpg
-                string url = $"{containerClient.Uri}/{nomeBlob}";
-
-                // Regex para capturar idUsuario e idAnimal do nome do blob
-                var match = Regex.Match(nomeBlob, @"usuario_(\d+)_animal_(\d+)", RegexOptions.IgnoreCase);
-                if (match.Success
-                    && int.TryParse(match.Groups[1].Value, out int idUsuarioDoBlob)
-                    && int.TryParse(match.Groups[2].Value, out int idAnimal))
-                {
-                    if (idUsuarioFiltro == 0 || idUsuarioFiltro == idUsuarioDoBlob)
-                    {
-                        var blobClient = containerClient.GetBlobClient(nomeBlob);
-                        string urlComSas = ObterUrlComSas(blobClient);
-
-                        resultado = new BuscarFotoAnimalResDto
-                        {
-                            IdUsuario = idUsuarioDoBlob,
-                            IdAnimal = idAnimal,
-                            Url = urlComSas
-                        };
-                    }
-                }
-
-            }
-
-            return resultado;
+                IdUsuario = idUsuarioFiltro,
+                IdAnimal = idAnimal,
+                Url = url
+            };
         }
 
-
-        public async Task<List<BuscarFotoAnimalResDto>> ListarFotosAnimaisPorUsuario(int idUsuarioFiltro)
+        public async Task<List<BuscarFotoAnimalResDto>> ListarFotosAnimaisPorUsuario(int idUsuario)
         {
-            if (string.IsNullOrEmpty(_azureBlobConnection))
-                throw new InvalidOperationException("A string de conexão com o Azure Blob não foi configurada.");
+            var prefix = $"animais/usuario_{idUsuario}/";
 
-            string containerName = "fotos-animais";
-            var blobServiceClient = new BlobServiceClient(_azureBlobConnection);
-            var containerClient = blobServiceClient.GetBlobContainerClient(containerName);
+            var urls = await _storageService.ListAsync(prefix);
 
-            var resultado = new List<BuscarFotoAnimalResDto>();
-
-            await foreach (var blobItem in containerClient.GetBlobsAsync())
+            return urls.Select(url =>
             {
-                string nomeBlob = blobItem.Name; // Ex: usuario_5_animal_12.jpg
-                string url = $"{containerClient.Uri}/{nomeBlob}";
+                var fileName = Path.GetFileNameWithoutExtension(url);
+                var match = Regex.Match(fileName, @"animal_(\d+)");
 
-                // Regex para capturar idUsuario e idAnimal do nome do blob
-                var match = Regex.Match(nomeBlob, @"usuario_(\d+)_animal_(\d+)", RegexOptions.IgnoreCase);
-                if (match.Success
-                    && int.TryParse(match.Groups[1].Value, out int idUsuarioDoBlob)
-                    && int.TryParse(match.Groups[2].Value, out int idAnimal))
+                return new BuscarFotoAnimalResDto
                 {
-                    if (idUsuarioFiltro == 0 || idUsuarioFiltro == idUsuarioDoBlob)
-                    {
-                        var blobClient = containerClient.GetBlobClient(nomeBlob);
-                        string urlComSas = ObterUrlComSas(blobClient);
-
-                        resultado.Add(new BuscarFotoAnimalResDto
-                        {
-                            IdUsuario = idUsuarioDoBlob,
-                            IdAnimal = idAnimal,
-                            Url = urlComSas
-                        });
-                    }
-                }
-
-            }
-
-            return resultado;
+                    IdUsuario = idUsuario,
+                    IdAnimal = match.Success ? int.Parse(match.Groups[1].Value) : 0,
+                    Url = url
+                };
+            }).ToList();
         }
 
         public async Task<string> EnviarOuAtualizarFotoDoAnimal(IFormFile arquivo, int idUsuario, int idAnimal)
@@ -154,51 +124,27 @@ namespace Pet.ON.Service.Servico
             if (arquivo == null || arquivo.Length == 0)
                 throw new ArgumentException("Arquivo inválido");
 
-            if (string.IsNullOrEmpty(_azureBlobConnection))
-                throw new InvalidOperationException("A string de conexão com o Azure Blob não foi configurada.");
+            if (idUsuario <= 0 || idAnimal <= 0)
+                throw new ArgumentException("Usuário ou Animal inválido");
 
             string extensao = Path.GetExtension(arquivo.FileName)?.ToLower();
+
             if (string.IsNullOrEmpty(extensao) || !extensao.StartsWith("."))
                 throw new ArgumentException("Extensão do arquivo inválida.");
 
-            string nomeArquivo = $"usuario_{idUsuario}_animal_{idAnimal}{extensao}";
-            string containerName = "fotos-animais";
+            // 🔥 Novo padrão organizado
+            string key = $"animais/usuario_{idUsuario}/animal_{idAnimal}{extensao}";
 
-            var blobServiceClient = new BlobServiceClient(_azureBlobConnection);
-            var containerClient = blobServiceClient.GetBlobContainerClient(containerName);
-
-            // Cria o container se ainda não existir
-            await containerClient.CreateIfNotExistsAsync(PublicAccessType.None);
-
-            var blobClient = containerClient.GetBlobClient(nomeArquivo);
-
-            // Envia e sobrescreve se já existir
             using (var stream = arquivo.OpenReadStream())
             {
-                await blobClient.UploadAsync(stream, overwrite: true);
+                var url = await _storageService.UploadAsync(
+                    key,
+                    stream,
+                    arquivo.ContentType
+                );
+
+                return url;
             }
-
-            // Retorna URL com SAS
-            return ObterUrlComSas(blobClient);
-        }
-
-        public string ObterUrlComSas(BlobClient blobClient)
-        {
-            if (!blobClient.CanGenerateSasUri)
-                throw new InvalidOperationException("BlobClient não pode gerar SAS URI. Verifique se a chave foi criada corretamente.");
-
-            var sasBuilder = new BlobSasBuilder
-            {
-                BlobContainerName = blobClient.BlobContainerName,
-                BlobName = blobClient.Name,
-                Resource = "b",
-                ExpiresOn = DateTimeOffset.UtcNow.AddHours(1)
-            };
-
-            sasBuilder.SetPermissions(BlobSasPermissions.Read);
-
-            Uri sasUri = blobClient.GenerateSasUri(sasBuilder);
-            return sasUri.ToString();
         }
         
         public async Task<int> AdcionarAnimalNovo(AdicionarAnimalReqDto dto)

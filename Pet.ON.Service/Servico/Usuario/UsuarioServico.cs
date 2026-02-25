@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Http;
 using System.IO;
 using System.Text.RegularExpressions;
 using Azure.Storage.Sas;
+using System.Linq;
 
 namespace Pet.ON.Service.Servico
 {
@@ -23,20 +24,18 @@ namespace Pet.ON.Service.Servico
         private readonly IUsuarioRepositorio _usuarioRepositorio;
         private readonly IMapper _mapper;
         private readonly IEmpresaServico _empresaServico;
-        private readonly IConfiguration _configuration;
-        private readonly string _azureBlobConnection;
+        private readonly IStorageService _storageService;
 
         public UsuarioServico(
             IMapper mapper, 
             IEmpresaServico empresaServico, 
             IUsuarioRepositorio usuarioRepositorio,
-            IConfiguration configuration)
+            IStorageService storageService)
         {
             _mapper = mapper;
             _empresaServico = empresaServico;
             _usuarioRepositorio = usuarioRepositorio;
-            _configuration = configuration;
-            _azureBlobConnection = configuration.GetConnectionString("AzureBlobConnection");
+            _storageService = storageService;
         }
 
         public async Task Cadastrar(AdicionarUsuarioReqDto dto)
@@ -182,92 +181,49 @@ namespace Pet.ON.Service.Servico
         
         public async Task<List<BuscarFotoUsuarioResDto>> ListarFotosDoUsuarios(int idUsuarioFiltro)
         {
-            if (string.IsNullOrEmpty(_azureBlobConnection))
-                throw new InvalidOperationException("A string de conexão com o Azure Blob não foi configurada.");
+            if (idUsuarioFiltro <= 0)
+                return new List<BuscarFotoUsuarioResDto>();
 
-            string containerName = "fotos-usuarios";
-            var blobServiceClient = new BlobServiceClient(_azureBlobConnection);
-            var containerClient = blobServiceClient.GetBlobContainerClient(containerName);
+            var prefix = $"usuarios/{idUsuarioFiltro}/";
 
-            var resultado = new List<BuscarFotoUsuarioResDto>();
+            var urls = await _storageService.ListAsync(prefix);
 
-            await foreach (var blobItem in containerClient.GetBlobsAsync())
-            {
-                string nomeBlob = blobItem.Name; // Ex: usuario_123.jpg
-
-                // Regex garante que extrai apenas arquivos que seguem o padrão "usuario_{id}.ext"
-                var match = Regex.Match(nomeBlob, @"usuario_(\d+)", RegexOptions.IgnoreCase);
-                if (match.Success && int.TryParse(match.Groups[1].Value, out int idUsuarioExtraido))
+            var fotos = urls
+                .Where(url => url.Contains("/perfil."))
+                .Select(url => new BuscarFotoUsuarioResDto
                 {
-                    if (idUsuarioFiltro == 0 || idUsuarioFiltro == idUsuarioExtraido)
-                    {
-                        var blobClient = containerClient.GetBlobClient(nomeBlob);
-                        string urlComSas = ObterUrlComSas(blobClient);
+                    IdUsuario = idUsuarioFiltro,
+                    Url = url
+                })
+                .ToList();
 
-                        resultado.Add(new BuscarFotoUsuarioResDto
-                        {
-                            IdUsuario = idUsuarioExtraido,
-                            Url = urlComSas
-                        });
-                    }
-                }
-            }
-
-            return resultado;
+            return fotos;
         }
-
+        
         public async Task<string> EnviarOuAtualizarFotoDoUsuario(IFormFile arquivo, int idUsuario)
         {
             if (arquivo == null || arquivo.Length == 0)
                 throw new ArgumentException("Arquivo inválido");
 
-            if (string.IsNullOrEmpty(_azureBlobConnection))
-                throw new InvalidOperationException("A string de conexão com o Azure Blob não foi configurada.");
+            if (idUsuario <= 0)
+                throw new ArgumentException("Usuário inválido");
 
             string extensao = Path.GetExtension(arquivo.FileName)?.ToLower();
+
             if (string.IsNullOrEmpty(extensao) || !extensao.StartsWith("."))
-                throw new ArgumentException("Extensão do arquivo inválida.");
+                throw new ArgumentException("Extensão inválida.");
 
-            string nomeArquivo = $"usuario_{idUsuario}{extensao}";
-            string containerName = "fotos-usuarios";
+            string key = $"usuarios/{idUsuario}/perfil{extensao}";
 
-            var blobServiceClient = new BlobServiceClient(_azureBlobConnection);
-            var containerClient = blobServiceClient.GetBlobContainerClient(containerName);
+            using var stream = arquivo.OpenReadStream();
 
-            // Cria o container se ainda não existir
-            await containerClient.CreateIfNotExistsAsync(PublicAccessType.None);
-
-            var blobClient = containerClient.GetBlobClient(nomeArquivo);
-
-            // Envia e sobrescreve se já existir
-            using (var stream = arquivo.OpenReadStream())
-            {
-                await blobClient.UploadAsync(stream, overwrite: true);
-            }
-
-            // Retorna URL com SAS
-            return ObterUrlComSas(blobClient);
+            return await _storageService.UploadAsync(
+                key,
+                stream,
+                arquivo.ContentType
+            );
         }
-
-        public string ObterUrlComSas(BlobClient blobClient)
-        {
-            if (!blobClient.CanGenerateSasUri)
-                throw new InvalidOperationException("BlobClient não pode gerar SAS URI. Verifique se a chave foi criada corretamente.");
-
-            var sasBuilder = new BlobSasBuilder
-            {
-                BlobContainerName = blobClient.BlobContainerName,
-                BlobName = blobClient.Name,
-                Resource = "b",
-                ExpiresOn = DateTimeOffset.UtcNow.AddHours(1)
-            };
-
-            sasBuilder.SetPermissions(BlobSasPermissions.Read);
-
-            Uri sasUri = blobClient.GenerateSasUri(sasBuilder);
-            return sasUri.ToString();
-        }
-
+        
         public async Task<int> AdicionarUsuarioNovo(AdicionarUsuarioReqDto dto)
         {
             var usuario = _mapper.Map<Usuario>(dto);
