@@ -51,9 +51,11 @@ namespace Pet.ON.Service.Servico
 
             var response = await _s3.ListObjectsV2Async(request);
 
-            return response.S3Objects
-                           .Select(o => $"https://{_bucket}.s3.amazonaws.com/{o.Key}")
-                           .ToList();
+            var objetos = response.S3Objects ?? new List<S3Object>();
+
+            return objetos
+                .Select(x => $"https://{_bucket}.s3.amazonaws.com/{x.Key}")
+                .ToList();
         }
     }
 }
