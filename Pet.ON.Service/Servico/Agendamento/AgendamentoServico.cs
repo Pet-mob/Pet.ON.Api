@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using Pet.ON.Domain.Dtos.v1;
 using Pet.ON.Domain.Dtos.v1.Agendamento;
+using Pet.ON.Domain.Dtos.v1.Animal;
 using Pet.ON.Domain.Dtos.v1.Empresa;
 using Pet.ON.Domain.Entidade.v1;
 using Pet.ON.Domain.Extensoes;
@@ -53,8 +54,8 @@ namespace Pet.ON.Service.Servico
             try
             {
                 var listaAgendamentos = await _agendamentoRepositorio.BuscarAgendamentos(dto.IdUsuario);
-                var listarFotosAnimaisPorUsuario = await _animalServico.ListarFotosAnimaisPorUsuario(dto.IdUsuario);
-                
+                var listarFotosAnimaisPorUsuario = await _animalServico.ListarFotosAnimaisPorUsuario(dto.IdUsuario) ?? new List<BuscarFotoAnimalResDto>();
+
                 // Associa a URL da foto ao agendamento correspondente
                 foreach (var agendamento in listaAgendamentos)
                 {
