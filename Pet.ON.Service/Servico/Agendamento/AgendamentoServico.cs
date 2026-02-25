@@ -68,9 +68,9 @@ namespace Pet.ON.Service.Servico
 
                 return _mapper.Map<List<BuscarAgendamentoResDto>>(listaAgendamentos);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                throw ex;
+                throw;
             }
         }
 
@@ -143,7 +143,7 @@ namespace Pet.ON.Service.Servico
                     FoiAgendado = algumAgendamentoSalvo
                 };
             }
-            catch
+            catch (Exception)
             {
                 throw;
             }
@@ -272,9 +272,9 @@ namespace Pet.ON.Service.Servico
                 var listaAgendamentos = await _agendamentoRepositorio.BuscarAgendamentosPendentes(idEmpresa);
                 return _mapper.Map<List<BuscarAgendamentoResDto>>(listaAgendamentos);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                throw ex;
+                throw;
             }
         }
 
