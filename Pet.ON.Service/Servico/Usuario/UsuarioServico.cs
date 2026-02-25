@@ -57,8 +57,9 @@ namespace Pet.ON.Service.Servico
                 // Inserir usuário no repositório
                 var resultado = await _usuarioRepositorio.InserirUsuarioAsync(usuario);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
+                throw;
                 //criar log sobre o qual motivo do erro
                 //mandar as notificação pro usuario.
 

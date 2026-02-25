@@ -54,6 +54,8 @@ namespace Pet.ON.Service.Servico
             foreach (var animal in animais)
             {
                 var fotoAnimal = await BuscarFotoAnimalPorUsuario(animal.IdUsuario);
+                if (fotoAnimal == null)
+                    continue;
                 if (fotoAnimal.IdUsuario == animal.IdUsuario)
                     animal.UrlFotoAnimal = fotoAnimal.Url;
             }
