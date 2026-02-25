@@ -56,7 +56,6 @@ namespace Pet.ON.Service.Servico
                 var listaAgendamentos = await _agendamentoRepositorio.BuscarAgendamentos(dto.IdUsuario);
                 var listarFotosAnimaisPorUsuario = await _animalServico.ListarFotosAnimaisPorUsuario(dto.IdUsuario) ?? new List<BuscarFotoAnimalResDto>();
 
-                // Associa a URL da foto ao agendamento correspondente
                 foreach (var agendamento in listaAgendamentos)
                 {
                     var fotoAnimal = listarFotosAnimaisPorUsuario
