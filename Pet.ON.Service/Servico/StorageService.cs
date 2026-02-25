@@ -11,12 +11,12 @@ using System.Threading.Tasks;
 
 namespace Pet.ON.Service.Servico
 {
-    public class S3StorageService : IStorageService
+    public class StorageService : IStorageService
     {
         private readonly IAmazonS3 _s3;
         private readonly string _bucket;
 
-        public S3StorageService()
+        public StorageService()
         {
             var accessKey = Environment.GetEnvironmentVariable("AWS_ACCESS_KEY_ID");
             var secretKey = Environment.GetEnvironmentVariable("AWS_SECRET_ACCESS_KEY");

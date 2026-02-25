@@ -23,6 +23,7 @@ namespace Pet.ON.Api.Configuracoes
             #region Serviço
             services.AddScoped<IParametrosServico, ParametrosServico>();
             services.AddScoped<IAgendamentoServico, AgendamentoServico>();
+            services.AddScoped<IStorageService, StorageService>();
             services.AddScoped<IAnimalServico, AnimalServico>(provider =>
             {
                 var animalRepositorio = provider.GetRequiredService<IAnimalRepositorio>();
@@ -53,7 +54,6 @@ namespace Pet.ON.Api.Configuracoes
                 var storageService = provider.GetRequiredService<IStorageService>();
                 return new EmpresaServico(empresaRepositorio, mapper, configuration, storageService);
             });
-
             #endregion
 
             #region Serviço Validações
