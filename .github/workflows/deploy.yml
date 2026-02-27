@@ -36,6 +36,7 @@ jobs:
             docker stop peton-api-container || true
             docker rm peton-api-container || true
             docker run -d \
+                --network pet-network \
                 -p 5000:80 \
                 -e ConnectionStrings__DefaultConnection="${{ secrets.DB_CONNECTION }}" \
                 -e JwtSettings__SecretKey="${{ secrets.JWT_SECRET_KEY }}" \
