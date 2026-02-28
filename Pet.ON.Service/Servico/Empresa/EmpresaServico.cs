@@ -63,11 +63,11 @@ namespace Pet.ON.Service.Servico
                 foreach (var empresa in empresas)
                 {
                     var logoEmpresa = await BuscarLogoEmpresa(empresa.IdEmpresa);
-                    if (logoEmpresa.IdEmpresa ==  empresa.IdEmpresa)
+                    if (logoEmpresa != null && logoEmpresa.IdEmpresa == empresa.IdEmpresa)
                         empresa.UrlLogoEmpresa = logoEmpresa.Url;
 
                     var capaEmpresa = await BuscarCapaEmpresa(empresa.IdEmpresa);
-                    if (capaEmpresa.IdEmpresa == empresa.IdEmpresa)
+                    if (capaEmpresa != null && capaEmpresa.IdEmpresa == empresa.IdEmpresa)
                         empresa.UrlCapaEmpresa = capaEmpresa.Url;
 
                 }
