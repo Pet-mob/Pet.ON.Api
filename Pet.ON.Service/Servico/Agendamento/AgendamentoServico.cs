@@ -190,7 +190,7 @@ namespace Pet.ON.Service.Servico
                     var agendamentos = await _agendamentoRepositorio.BuscarAgendamentosPorDia(dto.IdEmpresa, data);
 
                     var horariosDisponiveis = new List<string>();
-                    var duracao = TimeSpan.FromMinutes(dto.DuracaoEmMinutos);
+                    var duracao = dto.DuracaoEmMinutos;
                     var intervalo = TimeSpan.FromMinutes(horarioDiaFuncionamento.IntervaloEntreServicos);
 
                     // iterate using .Value since we checked HasValue above
