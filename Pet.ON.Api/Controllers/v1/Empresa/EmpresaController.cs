@@ -55,7 +55,7 @@ namespace Pet.ON.Api.Controllers.v1
         /// Retornar uma lista de horarios de funcionamento por empresa com base nos filtros.
         /// </summary>
         /// <returns>Retorna uma lista</returns>
-        [HttpPut("HorariosFuncionamento")]
+        [HttpPut("AtualizarHorariosFuncionamento")]
         [ProducesResponseType(typeof(List<BuscarHorariosFuncionamentosEmpresaResDto>), 200)]
         public async Task<IActionResult> AtualizarHorariosFuncionamento([FromBody] List<BuscarHorariosFuncionamentosEmpresaReqDto> dto)
         {

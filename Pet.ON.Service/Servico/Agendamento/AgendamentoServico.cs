@@ -177,38 +177,51 @@ namespace Pet.ON.Service.Servico
                         return new BuscarHorariosDisponiveisResDto(); // se um dia não funcionar, retorna vazio
                     }
 
+                    // Treat possible nullable TimeSpan safely (property may be TimeSpan or TimeSpan?)
+                    TimeSpan? inicio = horarioDiaFuncionamento.HorarioAbertura;
+                    TimeSpan? fim = horarioDiaFuncionamento.HorarioFechamento;
+
+                    // If times are missing, cannot compute available slots
+                    if (!inicio.HasValue || !fim.HasValue)
+                    {
+                        return new BuscarHorariosDisponiveisResDto();
+                    }
+
                     var agendamentos = await _agendamentoRepositorio.BuscarAgendamentosPorDia(dto.IdEmpresa, data);
 
                     var horariosDisponiveis = new List<string>();
-                    var inicio = horarioDiaFuncionamento.HorarioAbertura;
-                    var fim = horarioDiaFuncionamento.HorarioFechamento;
                     var duracao = TimeSpan.FromMinutes(dto.DuracaoEmMinutos);
                     var intervalo = TimeSpan.FromMinutes(horarioDiaFuncionamento.IntervaloEntreServicos);
 
-                    while (inicio + duracao <= fim)
+                    // iterate using .Value since we checked HasValue above
+                    var cursor = inicio.Value;
+                    var end = fim.Value;
+
+                    while (cursor + duracao <= end)
                     {
-                        var fimAgendamento = inicio + duracao;
+                        var fimAgendamento = cursor + duracao;
 
                         // Verifica se o horário atual já passou (apenas se a data for hoje)
-                        var dataHoraInicio = data.Date + inicio;
+                        var dataHoraInicio = data.Date + cursor;
                         var dataHoraAtual = DateTime.Now.Date + dto.HorarioAtual;
                         if (data.Date == DateTime.Today && dataHoraInicio < dataHoraAtual)
                         {
-                            inicio += duracao + intervalo;
+                            cursor += duracao + intervalo;
                             continue;
                         }
 
                         // Conta quantos agendamentos já existem nesse intervalo
                         var qtdeSimultaneo = agendamentos.Count(a =>
-                            inicio < a.HorarioFinal && fimAgendamento > a.HorarioInicial
+                            cursor < a.HorarioFinal && fimAgendamento > a.HorarioInicial
                         );
 
                         if (qtdeSimultaneo < limiteSimultaneo)
                         {
-                            horariosDisponiveis.Add($"{inicio.Hours:D2}:{inicio.Minutes:D2}");
+                            // Format using TimeSpan format with leading zeros
+                            horariosDisponiveis.Add(cursor.ToString(@"hh\:mm"));
                         }
 
-                        inicio += duracao + intervalo;
+                        cursor += duracao + intervalo;
                     }
 
                     if (horariosEmComum.Count == 0)
