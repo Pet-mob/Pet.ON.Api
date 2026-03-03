@@ -1,4 +1,3 @@
-using Pet.ON.Domain.Dtos.v1.Empresa;
 using Pet.ON.Domain.Interfaces.Servico.v1;
 using System;
 using System.Collections.Generic;

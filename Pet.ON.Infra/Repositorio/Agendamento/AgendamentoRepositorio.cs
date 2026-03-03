@@ -6,9 +6,6 @@ using System.Data;
 using System.Threading.Tasks;
 using Dapper;
 using Pet.ON.Domain.Dtos.v1.Agendamento;
-using static Pet.ON.Domain.Dtos.v1.Agendamento.AgendaDiaResDto;
-using static System.Runtime.InteropServices.JavaScript.JSType;
-using System.Collections;
 
 namespace Pet.ON.Infra.Repositorio
 {
