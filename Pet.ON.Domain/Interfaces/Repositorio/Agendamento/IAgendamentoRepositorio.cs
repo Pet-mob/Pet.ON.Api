@@ -18,6 +18,6 @@ namespace Pet.ON.Domain.Interfaces.Repositorio
         Task<IEnumerable<AgendamentoCamposAuxiliares>> BuscarAgenda(DateTime? dataFiltroInicio, DateTime? dataFiltroFim, int? idEmpresa);
         Task<int> BuscarQtdeAgendamentosDia(int idEmpresa, DateTime dataAgendamento, string horario);
         Task<IEnumerable<AgendamentoCamposAuxiliares>> BuscarAgendamentosPendentes(int idEmpresa);
-        Task<bool> AtualizarStatusAgendamento(int idAgendamento, string stringStatus);
+        Task<bool> AtualizarStatusAgendamento(int idAgendamento, int status);
     }
 }

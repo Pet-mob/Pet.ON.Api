@@ -4,7 +4,6 @@ using Pet.ON.Domain.Dtos.v1.Agendamento;
 using Pet.ON.Domain.Dtos.v1.Animal;
 using Pet.ON.Domain.Dtos.v1.Empresa;
 using Pet.ON.Domain.Entidade.v1;
-using Pet.ON.Domain.Extensoes;
 using Pet.ON.Domain.Interfaces.Hubs;
 using Pet.ON.Domain.Interfaces.Repositorio;
 using Pet.ON.Domain.Interfaces.Servico.v1;
@@ -15,7 +14,6 @@ using System.Data;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
-using static Pet.ON.Domain.Dtos.v1.Agendamento.AgendaDiaResDto;
 
 namespace Pet.ON.Service.Servico
 {
@@ -293,10 +291,7 @@ namespace Pet.ON.Service.Servico
 
         public async Task<bool> AtualizarStatusAgendamento(int idAgendamento, int status)
         {
-            if(status < 0)
-                throw new ArgumentException("Status inválido.");
-            var stringStatus = status == 1 ? "Concluido" : "Negado" ;
-            return await _agendamentoRepositorio.AtualizarStatusAgendamento(idAgendamento, stringStatus);
+            return await _agendamentoRepositorio.AtualizarStatusAgendamento(idAgendamento, status);
         }
 
         #endregion

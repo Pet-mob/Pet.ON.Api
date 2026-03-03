@@ -5,7 +5,6 @@ using System;
 using System.Data;
 using System.Threading.Tasks;
 using Dapper;
-using Pet.ON.Domain.Dtos.v1.Agendamento;
 
 namespace Pet.ON.Infra.Repositorio
 {
@@ -278,18 +277,19 @@ namespace Pet.ON.Infra.Repositorio
             });
         }
 
-        public Task<bool> AtualizarStatusAgendamento(int idAgendamento, string stringStatus)
+        public async Task<bool> AtualizarStatusAgendamento(int idAgendamento, int status)
         {
             const string sql = @"
                 UPDATE Agendamentos
                 SET status = @Status
                 WHERE id_agendamento_pai = @IdAgendamento
             ";
-            return _dbConnection.ExecuteAsync(sql, new
+            var resultado = await _dbConnection.ExecuteAsync(sql, new
             {
                 IdAgendamento = idAgendamento,
-                Status = stringStatus
-            }).ContinueWith(task => task.Result > 0);
+                Status = status
+            });
+            return resultado > 0;
         }
     }
 }
