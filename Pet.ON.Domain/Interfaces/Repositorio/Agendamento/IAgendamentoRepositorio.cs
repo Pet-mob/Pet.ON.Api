@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System;
-using Pet.ON.Domain.Dtos.v1.Agendamento;
 
 
 namespace Pet.ON.Domain.Interfaces.Repositorio
