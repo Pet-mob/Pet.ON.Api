@@ -14,6 +14,6 @@ namespace Pet.ON.Domain.Dtos.v1
         public List<DateTime> ListaDatasAgendamento { get; set; }
         public TimeSpan Horario { get; set; }
         public TimeSpan HorarioFinal { get; set; }
-        public string Status { get; set; }
+        public int IdStatusAgendamento { get; set; }        
     }
 }

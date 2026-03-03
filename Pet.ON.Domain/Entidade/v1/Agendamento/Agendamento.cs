@@ -13,7 +13,7 @@ namespace Pet.ON.Domain.Entidade.v1
         public DateTime Data { get; set; }
         public TimeSpan HorarioInicial { get; set; }
         public TimeSpan HorarioFinal { get; set; }
-        public string Status { get; set; }
+        public int IdStatusAgendamento { get; set; }
         public int? IdAgendamentoPai { get; set; }
 
     }

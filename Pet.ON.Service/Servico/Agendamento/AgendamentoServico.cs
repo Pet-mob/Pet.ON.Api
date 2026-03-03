@@ -98,7 +98,7 @@ namespace Pet.ON.Service.Servico
                             Data = dataAgendamento,
                             HorarioInicial = dto.Horario,
                             HorarioFinal = dto.HorarioFinal,
-                            Status = dto.Status,
+                            IdStatusAgendamento = dto.IdStatusAgendamento,
                             IdAgendamentoPai = idAgendamentoPai // null no primeiro
                         };
 

@@ -21,11 +21,11 @@ namespace Pet.ON.Infra.Repositorio
         {
             var sql = @"INSERT INTO Agendamentos 
                 (pacote_mensal, id_servico, data, horario_inicial, horario_final, 
-                 id_animal, id_usuario, id_empresa, status, id_agendamento_pai)
+                 id_animal, id_usuario, id_empresa, id_status_agendamento, id_agendamento_pai)
                 OUTPUT INSERTED.id_agendamento
                 VALUES 
                 (@PacoteMensal, @IdServico, @Data, @HorarioInicial, 
-                 @HorarioFinal, @IdAnimal, @IdUsuario, @IdEmpresa, @Status,
+                 @HorarioFinal, @IdAnimal, @IdUsuario, @IdEmpresa, @IdStatusAgendamento,
                  @IdAgendamentoPai)";
 
             var id = await _dbConnection.ExecuteScalarAsync<int>(sql, agendamento);
@@ -58,7 +58,7 @@ namespace Pet.ON.Infra.Repositorio
                     u.nome AS NomeUsuario,
                     a.id_empresa AS IdEmpresa,
                     e.fantasia_razao_social AS NomeEmpresa,
-                    a.status AS Status
+                    a.id_status_agendamento AS IdStatusAgendamento,
                 FROM Agendamentos a
                 JOIN Animal an on an.id_animal = a.id_animal
                 JOIN Servicos s on s.id_servico = a.id_servico
@@ -67,7 +67,7 @@ namespace Pet.ON.Infra.Repositorio
                 WHERE a.id_usuario = @IdUsuario
                 GROUP BY 
                     a.pacote_mensal, a.data, a.horario_inicial, a.horario_final, a.id_animal, an.nome,
-                    a.id_usuario, u.nome, a.id_empresa, e.fantasia_razao_social, a.status
+                    a.id_usuario, u.nome, a.id_empresa, e.fantasia_razao_social, a.id_status_agendamento
                 ORDER BY a.data DESC
             ";
 
@@ -90,7 +90,7 @@ namespace Pet.ON.Infra.Repositorio
                     id_animal AS IdAnimal,
                     id_usuario AS IdUsuario,
                     id_empresa AS IdEmpresa,
-                    status AS Status
+                    id_status_agendamento AS IdStatusAgendamento
                 FROM Agendamentos
                 WHERE id_empresa = @IdEmpresa AND CAST(Data AS DATE) = @Data
             ";
@@ -117,7 +117,7 @@ namespace Pet.ON.Infra.Repositorio
 
                 (SELECT COUNT(1) 
                  FROM Agendamentos 
-                 WHERE CAST(Data AS DATE) = @dataHoje AND Status = 'Concluido' AND id_empresa = @idEmpresa) AS ServicosConcluidosHoje,
+                 WHERE CAST(Data AS DATE) = @dataHoje AND id_status_agendamento = 1 AND id_empresa = @idEmpresa) AS ServicosConcluidosHoje,
 
                 (SELECT COUNT(1) 
                  FROM Agendamentos 
@@ -133,7 +133,7 @@ namespace Pet.ON.Infra.Repositorio
                         INNER JOIN servicos s ON a.id_servico = s.id_servico AND s.id_empresa = a.id_empresa
                         INNER JOIN animal an ON a.id_animal = an.id_animal
                         WHERE CAST(a.data AS DATETIME) + CAST(a.horario_inicial AS DATETIME) > GETDATE() 
-                          AND Status = 'Agendado' AND a.id_empresa = @idEmpresa
+                          AND id_status_agendamento = 3 AND a.id_empresa = @idEmpresa
                         ORDER BY a.data, a.horario_inicial
                     ) AS Sub
                 ) AS ProximoHorario;
@@ -191,13 +191,13 @@ namespace Pet.ON.Infra.Repositorio
                     u.nome AS NomeUsuario,
                     a.id_empresa AS IdEmpresa,
                     e.fantasia_razao_social AS NomeEmpresa,
-                    a.status AS Status
+                    a.id_status_agendamento AS IdStatusAgendamento
                 FROM Agendamentos a
                 JOIN Animal an on an.id_animal = a.id_animal
                 JOIN Servicos s on s.id_servico = a.id_servico
                 JOIN Empresa e on e.id_empresa = a.id_empresa
                 JOIN Usuario u on u.id = a.id_usuario
-                WHERE a.status = 'Concluido'                
+                WHERE a.id_status_agendamento = 1                
             ";
 
             if (idEmpresa > 0)
@@ -210,7 +210,7 @@ namespace Pet.ON.Infra.Repositorio
             sql += @"
                      GROUP BY 
                         a.pacote_mensal, a.data, a.horario_inicial, a.horario_final, a.id_animal, an.nome,
-                        a.id_usuario, u.nome, a.id_empresa, e.fantasia_razao_social, a.status 
+                        a.id_usuario, u.nome, a.id_empresa, e.fantasia_razao_social, a.id_status_agendamento 
                     ORDER BY a.data Desc ";
 
             return await _dbConnection.QueryAsync<AgendamentoCamposAuxiliares>(sql, new
@@ -227,7 +227,7 @@ namespace Pet.ON.Infra.Repositorio
                 SELECT 
                     COUNT(1)                    
                 FROM Agendamentos
-                WHERE id_empresa = @IdEmpresa AND CAST(Data AS DATE) = @Data and status = 'Agendado' AND 
+                WHERE id_empresa = @IdEmpresa AND CAST(Data AS DATE) = @Data and id_status_agendamento = 3 AND 
                       CAST(Horario_Inicial AS TIME) = @Horario
             ";
 
@@ -258,16 +258,16 @@ namespace Pet.ON.Infra.Repositorio
                     u.nome AS NomeUsuario,
                     a.id_empresa AS IdEmpresa,
                     e.fantasia_razao_social AS NomeEmpresa,
-                    a.status AS Status
+                    a.id_status_agendamento AS IdStatusAgendamento
                 FROM Agendamentos a
                 JOIN Animal an on an.id_animal = a.id_animal
                 JOIN Servicos s on s.id_servico = a.id_servico
                 JOIN Empresa e on e.id_empresa = a.id_empresa
                 JOIN Usuario u on u.id = a.id_usuario
-                WHERE a.id_empresa = @IdEmpresa AND a.status = 'Agendado'
+                WHERE a.id_empresa = @IdEmpresa AND a.id_status_agendamento = 3
                 GROUP BY 
                     a.pacote_mensal, a.data, a.horario_inicial, a.horario_final, a.id_animal, an.nome,
-                    a.id_usuario, u.nome, a.id_empresa, e.fantasia_razao_social, a.status
+                    a.id_usuario, u.nome, a.id_empresa, e.fantasia_razao_social, a.id_status_agendamento
                 ORDER BY a.data DESC
             ";
 
@@ -281,7 +281,7 @@ namespace Pet.ON.Infra.Repositorio
         {
             const string sql = @"
                 UPDATE Agendamentos
-                SET status = @Status
+                SET id_status_agendamento = @Status
                 WHERE id_agendamento_pai = @IdAgendamento
             ";
             var resultado = await _dbConnection.ExecuteAsync(sql, new
