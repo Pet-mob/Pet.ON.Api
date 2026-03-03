@@ -83,9 +83,9 @@ namespace Pet.ON.Api.Controllers.v1
         }
         
         [HttpPut("AtualizarStatus")]
-        public async Task<IActionResult> AtualizarStatusAgendamento([FromQuery] int idAgendamento, int status)
+        public async Task<IActionResult> AtualizarStatusAgendamento([FromQuery] int idAgendamento, int idStatusAgendamento)
         {
-            return ExecuteOperation(() => _agendamentoServico.AtualizarStatusAgendamento(idAgendamento, status));
+            return ExecuteOperation(() => _agendamentoServico.AtualizarStatusAgendamento(idAgendamento, idStatusAgendamento));
         }
     }
 }

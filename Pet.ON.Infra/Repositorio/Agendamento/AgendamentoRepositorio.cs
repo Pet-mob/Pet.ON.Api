@@ -277,17 +277,17 @@ namespace Pet.ON.Infra.Repositorio
             });
         }
 
-        public async Task<bool> AtualizarStatusAgendamento(int idAgendamento, int status)
+        public async Task<bool> AtualizarStatusAgendamento(int idAgendamento, int idStatusAgendamento)
         {
             const string sql = @"
                 UPDATE Agendamentos
-                SET id_status_agendamento = @Status
+                SET id_status_agendamento = @IdStatusAgendamento
                 WHERE id_agendamento_pai = @IdAgendamento
             ";
             var resultado = await _dbConnection.ExecuteAsync(sql, new
             {
                 IdAgendamento = idAgendamento,
-                Status = status
+                IdStatusAgendamento = idStatusAgendamento
             });
             return resultado > 0;
         }

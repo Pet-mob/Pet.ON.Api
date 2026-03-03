@@ -289,9 +289,9 @@ namespace Pet.ON.Service.Servico
             }
         }
 
-        public async Task<bool> AtualizarStatusAgendamento(int idAgendamento, int status)
+        public async Task<bool> AtualizarStatusAgendamento(int idAgendamento, int idStatusAgendamento)
         {
-            return await _agendamentoRepositorio.AtualizarStatusAgendamento(idAgendamento, status);
+            return await _agendamentoRepositorio.AtualizarStatusAgendamento(idAgendamento, idStatusAgendamento);
         }
 
         #endregion
