@@ -11,66 +11,99 @@ using Pet.ON.Infra.Repositorio;
 using Pet.ON.Infra.Repositorio.Parametros;
 using Pet.ON.Service.Servico;
 using Pet.ON.Service.Servico.Parametros;
+using System;
 
 namespace Pet.ON.Api.Configuracoes
 {
-    public static class RegistrarInstanciaConfiguracao
+    /// <summary>
+    /// Classe para registrar todas as dependências (injeção de dependência) da aplicação.
+    /// Segue o padrão de Dependency Injection do ASP.NET Core.
+    /// </summary>
+    public static class RegistradorInstanciaConfiguracao
     {
-        public static void Registrar(this IServiceCollection services)
+        /// <summary>
+        /// Registra todos os serviços, repositórios e hubs no container de DI.
+        /// </summary>
+        public static void Registrar(this IServiceCollection servicos)
         {
+            if (servicos == null)
+                throw new ArgumentNullException(nameof(servicos));
 
-            
-            #region Serviço
-            services.AddScoped<IParametrosServico, ParametrosServico>();
-            services.AddScoped<IAgendamentoServico, AgendamentoServico>();
-            services.AddScoped<IStorageService, StorageService>();
-            services.AddScoped<IAnimalServico, AnimalServico>(provider =>
+            // Registrar serviços
+            RegistrarServicos(servicos);
+
+            // Registrar repositórios
+            RegistrarRepositorios(servicos);
+
+            // Registrar hubs de notificação
+            RegistrarHubs(servicos);
+        }
+
+        /// <summary>
+        /// Registra todos os serviços da camada de negócio.
+        /// </summary>
+        private static void RegistrarServicos(IServiceCollection servicos)
+        {
+            // Serviços base
+            servicos.AddScoped<IParametrosServico, ParametrosServico>();
+            servicos.AddScoped<IAgendamentoServico, AgendamentoServico>();
+            servicos.AddScoped<IStorageService, StorageService>();
+
+            // Serviço de Animal com injeção de dependências
+            servicos.AddScoped<IAnimalServico, AnimalServico>(provedor =>
             {
-                var animalRepositorio = provider.GetRequiredService<IAnimalRepositorio>();
-                var mapper = provider.GetRequiredService<IMapper>();
-                var configuration = provider.GetRequiredService<IConfiguration>();
-                var connection = configuration.GetConnectionString("AzureBlobConnection"); // certifique-se de que está igual ao appsettings.json
-                var storageService = provider.GetRequiredService<IStorageService>();
+                var repositorio = provedor.GetRequiredService<IAnimalRepositorio>();
+                var mapper = provedor.GetRequiredService<IMapper>();
+                var configuracao = provedor.GetRequiredService<IConfiguration>();
+                var servicoArmazenamento = provedor.GetRequiredService<IStorageService>();
 
-                return new AnimalServico(animalRepositorio, mapper, configuration, storageService);
+                return new AnimalServico(repositorio, mapper, configuracao, servicoArmazenamento);
             });
 
-            services.AddScoped<IServicosServico, ServicosServico>();
-            services.AddScoped<IUsuarioServico, UsuarioServico>(provider =>
-            {
-                var mapper = provider.GetRequiredService<IMapper>();
-                var empresaServico = provider.GetRequiredService<IEmpresaServico>();
-                var usuarioRepositorio = provider.GetRequiredService<IUsuarioRepositorio>();
-                var storageService = provider.GetRequiredService<IStorageService>();
+            // Serviço de Serviços
+            servicos.AddScoped<IServicosServico, ServicosServico>();
 
-                return new UsuarioServico(mapper, empresaServico, usuarioRepositorio, storageService);
+            // Serviço de Usuário com injeção de dependências
+            servicos.AddScoped<IUsuarioServico, UsuarioServico>(provedor =>
+            {
+                var mapper = provedor.GetRequiredService<IMapper>();
+                var servicoEmpresa = provedor.GetRequiredService<IEmpresaServico>();
+                var repositorio = provedor.GetRequiredService<IUsuarioRepositorio>();
+                var servicoArmazenamento = provedor.GetRequiredService<IStorageService>();
+
+                return new UsuarioServico(mapper, servicoEmpresa, repositorio, servicoArmazenamento);
             });
 
-            services.AddScoped<IEmpresaServico, EmpresaServico>(provider =>
+            // Serviço de Empresa com injeção de dependências
+            servicos.AddScoped<IEmpresaServico, EmpresaServico>(provedor =>
             {
-                var empresaRepositorio = provider.GetRequiredService<IEmpresaRepositorio>();
-                var mapper = provider.GetRequiredService<IMapper>();
-                var configuration = provider.GetRequiredService<IConfiguration>();
-                var storageService = provider.GetRequiredService<IStorageService>();
-                return new EmpresaServico(empresaRepositorio, mapper, configuration, storageService);
+                var repositorio = provedor.GetRequiredService<IEmpresaRepositorio>();
+                var mapper = provedor.GetRequiredService<IMapper>();
+                var servicoArmazenamento = provedor.GetRequiredService<IStorageService>();
+
+                return new EmpresaServico(repositorio, mapper, servicoArmazenamento);
             });
-            #endregion
+        }
 
-            #region Serviço Validações
-            #endregion
+        /// <summary>
+        /// Registra todos os repositórios.
+        /// </summary>
+        private static void RegistrarRepositorios(IServiceCollection servicos)
+        {
+            servicos.AddScoped<IAgendamentoRepositorio, AgendamentoRepositorio>();
+            servicos.AddScoped<IAnimalRepositorio, AnimalRepositorio>();
+            servicos.AddScoped<IServicosRepositorio, ServicosRepositorio>();
+            servicos.AddScoped<IUsuarioRepositorio, UsuarioRepositorio>();
+            servicos.AddScoped<IEmpresaRepositorio, EmpresaRepositorio>();
+            servicos.AddScoped<IParametrosRepositorio, ParametrosRepositorio>();
+        }
 
-            #region Repositório
-            services.AddScoped<IAgendamentoRepositorio, AgendamentoRepositorio>();
-            services.AddScoped<IAnimalRepositorio, AnimalRepositorio>();
-            services.AddScoped<IServicosRepositorio, ServicosRepositorio>();
-            services.AddScoped<IUsuarioRepositorio, UsuarioRepositorio>();
-            services.AddScoped<IEmpresaRepositorio, EmpresaRepositorio>();
-            services.AddScoped<IParametrosRepositorio, ParametrosRepositorio>();
-            #endregion
-
-            #region Hubs
-            services.AddScoped<INotificacaoDeAgendamento, NotificacaoDeAgendamentoSignalR>();
-            #endregion
+        /// <summary>
+        /// Registra todos os hubs de notificação em tempo real.
+        /// </summary>
+        private static void RegistrarHubs(IServiceCollection servicos)
+        {
+            servicos.AddScoped<INotificacaoDeAgendamento, NotificacaoDeAgendamentoSignalR>();
         }
     }
 }

@@ -32,7 +32,7 @@ namespace Pet.ON.Api
             ConfigureDatabase(services);
             ConfigureSwagger(services);
             ConfigureAutoMapper(services);
-            RegistrarInstanciaConfiguracao.Registrar(services);
+            RegistradorInstanciaConfiguracao.Registrar(services);
             // ✅ Registra o cache de memória para que o AuthController funcione corretamente
             services.AddMemoryCache();
             services.AddControllers()

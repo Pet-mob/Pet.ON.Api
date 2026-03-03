@@ -16,6 +16,10 @@ namespace Pet.ON.Service.Servico
         private readonly IAmazonS3 _s3;
         private readonly string _bucket;
 
+        /// <summary>
+        /// Inicializa o serviço de armazenamento AWS S3.
+        /// Requer variáveis de ambiente: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, AWS_BUCKET_NAME
+        /// </summary>
         public StorageService()
         {
             var accessKey = Environment.GetEnvironmentVariable("AWS_ACCESS_KEY_ID");

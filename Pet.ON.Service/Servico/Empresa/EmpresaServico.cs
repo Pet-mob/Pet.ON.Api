@@ -7,80 +7,106 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Pet.ON.Domain.Dtos.v1.Empresa;
-using Microsoft.Extensions.Configuration;
-using Azure.Storage.Blobs;
-using System.Text.RegularExpressions;
-using Azure.Storage.Blobs.Models;
 using Microsoft.AspNetCore.Http;
-using System.IO;
-using Azure.Storage.Sas;
 using System.Linq;
 
 namespace Pet.ON.Service.Servico
 {
+    /// <summary>
+    /// Serviço para gerenciar operações de empresa.
+    /// Responsabilidades: CRUD de empresa e horários de funcionamento.
+    /// Armazenamento de mídia delegado para GerenciadorMidiaSobreEscrita.
+    /// </summary>
     public class EmpresaServico : IEmpresaServico
     {
         private readonly IEmpresaRepositorio _empresaRepositorio;
         private readonly IMapper _mapper;
         private readonly IStorageService _storageService;
+        private readonly GerenciadorMidiaSobreEscrita _gerenciadorMidia;
 
-        public EmpresaServico(IEmpresaRepositorio empresaRepositorio, IMapper mapper, IConfiguration configuration, IStorageService storageService)
+        public EmpresaServico(
+            IEmpresaRepositorio empresaRepositorio, 
+            IMapper mapper, 
+            IStorageService storageService)
         {
-            _empresaRepositorio = empresaRepositorio;
-            _mapper = mapper;
-            _storageService = storageService;
+            _empresaRepositorio = empresaRepositorio ?? throw new ArgumentNullException(nameof(empresaRepositorio));
+            _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
+            _storageService = storageService ?? throw new ArgumentNullException(nameof(storageService));
+            _gerenciadorMidia = new GerenciadorMidiaSobreEscrita(_storageService);
         }
 
         #region Atualizar
+
+        /// <summary>
+        /// Atualiza os dados de uma empresa.
+        /// </summary>
         public async Task<AtualizarEmpresaResDto> Atualizar(AtualizarEmpresaReqDto dto)
         {
+            if (dto == null)
+                throw new ArgumentNullException(nameof(dto), "Dados de atualização não podem ser nulos.");
+
             try
             {
                 var empresa = _mapper.Map<Empresa>(dto);
-                var resultado = await _empresaRepositorio.UpdateAsync(empresa);  // Usando repositório especializado
+                var resultado = await _empresaRepositorio.UpdateAsync(empresa);
                 return _mapper.Map<AtualizarEmpresaResDto>(resultado);
             }
             catch (Exception ex)
             {
-                // Pode registrar o erro ou lançar uma exceção personalizada
-                throw new Exception("Erro ao atualizar empresa", ex);
+                throw new InvalidOperationException("Erro ao atualizar empresa.", ex);
             }
         }
 
+        /// <summary>
+        /// Atualiza os horários de funcionamento de uma empresa.
+        /// </summary>
         public async Task AtualizarHorariosFuncionamento(List<BuscarHorariosFuncionamentosEmpresaReqDto> dto)
         {
+            if (dto == null || dto.Count == 0)
+                throw new ArgumentException("Lista de horários não pode ser nula ou vazia.", nameof(dto));
+
             var horarios = _mapper.Map<List<HorariosFuncionamento>>(dto);
             await _empresaRepositorio.AtualizarHorariosFuncionamentoAsync(horarios);
         }
+
         #endregion
 
         #region Buscar
+
+        /// <summary>
+        /// Busca empresas com filtros aplicados e carrega suas logos e capas.
+        /// </summary>
         public async Task<IEnumerable<BuscarEmpresaResDto>> Buscar(BuscarEmpresaReqDto dto)
         {
+            if (dto == null)
+                throw new ArgumentNullException(nameof(dto), "Filtros de busca não podem ser nulos.");
+
             try
             {
                 var empresas = await _empresaRepositorio.GetByParameters(dto);
+                
                 foreach (var empresa in empresas)
                 {
-                    var logoEmpresa = await BuscarLogoEmpresa(empresa.IdEmpresa);
-                    if (logoEmpresa != null && logoEmpresa.IdEmpresa == empresa.IdEmpresa)
-                        empresa.UrlLogoEmpresa = logoEmpresa.Url;
-
-                    var capaEmpresa = await BuscarCapaEmpresa(empresa.IdEmpresa);
-                    if (capaEmpresa != null && capaEmpresa.IdEmpresa == empresa.IdEmpresa)
-                        empresa.UrlCapaEmpresa = capaEmpresa.Url;
-
+                    await CarregarMidiasEmpresaAsync(empresa);
                 }
-                return _mapper.Map<IEnumerable<BuscarEmpresaResDto>>(empresas);                 
+
+                return _mapper.Map<IEnumerable<BuscarEmpresaResDto>>(empresas);
             }
             catch (Exception ex)
             {
-                throw new Exception("Erro ao buscar empresas", ex);
+                throw new InvalidOperationException("Erro ao buscar empresas.", ex);
             }
         }
 
-        public async Task<IEnumerable<BuscarHorariosFuncionamentosEmpresaResDto>> BuscarHorariosFuncionamento(BuscarHorariosFuncionamentosEmpresaReqDto dto)
+        /// <summary>
+        /// Busca horários de funcionamento de uma empresa.
+        /// </summary>
+        public async Task<IEnumerable<BuscarHorariosFuncionamentosEmpresaResDto>> BuscarHorariosFuncionamento(
+            BuscarHorariosFuncionamentosEmpresaReqDto dto)
         {
+            if (dto == null)
+                throw new ArgumentNullException(nameof(dto), "Filtros de busca não podem ser nulos.");
+
             try
             {
                 var horariosFuncionamentos = await _empresaRepositorio.BuscarHorariosFuncionamento(dto);
@@ -88,173 +114,138 @@ namespace Pet.ON.Service.Servico
             }
             catch (Exception ex)
             {
-                throw new Exception("Erro ao buscar horarios de funcionamento da empresas", ex);
+                throw new InvalidOperationException("Erro ao buscar horários de funcionamento.", ex);
             }
         }
+
         #endregion
 
         #region Cadastrar
+
+        /// <summary>
+        /// Cadastra uma nova empresa.
+        /// </summary>
         public async Task<AdicionarEmpresaResDto> Cadastrar(AdicionarEmpresaReqDto dto)
         {
+            if (dto == null)
+                throw new ArgumentNullException(nameof(dto), "Dados de cadastro não podem ser nulos.");
+
             try
             {
                 var empresa = _mapper.Map<Empresa>(dto);
-                var resultado = await _empresaRepositorio.InsertAsync(empresa);  // Usando repositório especializado
+                var resultado = await _empresaRepositorio.InsertAsync(empresa);
                 return _mapper.Map<AdicionarEmpresaResDto>(resultado);
             }
             catch (Exception ex)
             {
-                // Pode registrar o erro ou lançar uma exceção personalizada
-                throw new Exception("Erro ao cadastrar empresa", ex);
+                throw new InvalidOperationException("Erro ao cadastrar empresa.", ex);
             }
         }
 
-        public async Task<List<BuscarLogosResDto>> ListarCapaEmpresa(int idEmpresaFiltro)
+        #endregion
+
+        #region Gerenciar Logos
+
+        /// <summary>
+        /// Lista todas as logos de uma empresa.
+        /// </summary>
+        public async Task<List<BuscarLogosResDto>> ListarLogosEmpresa(int idEmpresa)
         {
-            if (idEmpresaFiltro <= 0)
-                return new List<BuscarLogosResDto>();
+            ValidadorArquivo.ValidarId(idEmpresa, "empresa");
 
-            var prefix = $"empresas/{idEmpresaFiltro}/";
+            var urls = await _gerenciadorMidia.ListarMidiasAsync(idEmpresa, "empresas", "logo");
 
-            var urls = await _storageService.ListAsync(prefix);
-
-            var capas = urls
-                .Where(url => url.Contains("/capa."))
-                .Select(url => new BuscarLogosResDto
-                {
-                    IdEmpresa = idEmpresaFiltro,
-                    Url = url
-                })
+            return urls
+                .Select(url => new BuscarLogosResDto { IdEmpresa = idEmpresa, Url = url })
                 .ToList();
-
-            return capas;
         }
 
-        private async Task<BuscarLogosResDto> BuscarLogoEmpresa(int idEmpresaFiltro)
-        {
-            if (idEmpresaFiltro <= 0)
-                return null;
-
-            var prefix = $"empresas/{idEmpresaFiltro}/";
-
-            var urls = await _storageService.ListAsync(prefix);
-
-            var logoUrl = urls.FirstOrDefault(u => u.Contains("/logo."));
-
-            if (logoUrl == null)
-                return null;
-
-            return new BuscarLogosResDto
-            {
-                IdEmpresa = idEmpresaFiltro,
-                Url = logoUrl
-            };
-        }
-
-        private async Task<BuscarLogosResDto> BuscarCapaEmpresa(int idEmpresaFiltro)
-        {
-            if (idEmpresaFiltro <= 0)
-                return null;
-
-            var prefix = $"empresas/{idEmpresaFiltro}/";
-
-            var urls = await _storageService.ListAsync(prefix);
-
-            var capaUrl = urls.FirstOrDefault(u => u.Contains("/capa."));
-
-            if (capaUrl == null)
-                return null;
-
-            return new BuscarLogosResDto
-            {
-                IdEmpresa = idEmpresaFiltro,
-                Url = capaUrl
-            };
-        }
-        public async Task<List<BuscarLogosResDto>> ListarLogosEmpresa(int idEmpresaFiltro)
-        {
-            if (idEmpresaFiltro <= 0)
-                return new List<BuscarLogosResDto>();
-
-            var prefix = $"empresas/{idEmpresaFiltro}/";
-
-            var urls = await _storageService.ListAsync(prefix);
-
-            var logos = urls
-                .Where(url => url.Contains("/logo."))
-                .Select(url => new BuscarLogosResDto
-                {
-                    IdEmpresa = idEmpresaFiltro,
-                    Url = url
-                })
-                .ToList();
-
-            return logos;
-        }
+        /// <summary>
+        /// Realiza upload de uma nova logo de empresa.
+        /// </summary>
         public async Task<string> EnviarLogoEmpresa(IFormFile arquivo, int idEmpresa)
         {
-            if (arquivo == null || arquivo.Length == 0)
-                throw new ArgumentException("Arquivo inválido");
+            ValidadorArquivo.ValidarId(idEmpresa, "empresa");
+            var extensao = ValidadorArquivo.ValidarEObtlerExtensao(arquivo, "logo de empresa");
 
-            if (idEmpresa <= 0)
-                throw new ArgumentException("Empresa inválida");
-
-            string extensao = Path.GetExtension(arquivo.FileName)?.ToLower();
-
-            if (string.IsNullOrEmpty(extensao) || !extensao.StartsWith("."))
-                throw new ArgumentException("Extensão inválida.");
-
-            string key = $"empresas/{idEmpresa}/logo{extensao}";
+            var chave = ValidadorArquivo.CriarChavenArquivo("empresas", idEmpresa, "logo", extensao);
 
             using var stream = arquivo.OpenReadStream();
-
-            return await _storageService.UploadAsync(
-                key,
-                stream,
-                arquivo.ContentType
-            );
+            return await _storageService.UploadAsync(chave, stream, arquivo.ContentType);
         }
 
+        #endregion
+
+        #region Gerenciar Capas
+
+        /// <summary>
+        /// Lista todas as capas de uma empresa.
+        /// </summary>
+        public async Task<List<BuscarLogosResDto>> ListarCapaEmpresa(int idEmpresa)
+        {
+            ValidadorArquivo.ValidarId(idEmpresa, "empresa");
+
+            var urls = await _gerenciadorMidia.ListarMidiasAsync(idEmpresa, "empresas", "capa");
+
+            return urls
+                .Select(url => new BuscarLogosResDto { IdEmpresa = idEmpresa, Url = url })
+                .ToList();
+        }
+
+        /// <summary>
+        /// Realiza upload de uma nova capa de empresa.
+        /// </summary>
         public async Task<string> EnviarCapaEmpresa(IFormFile arquivo, int idEmpresa)
         {
-            if (arquivo == null || arquivo.Length == 0)
-                throw new ArgumentException("Arquivo inválido");
+            ValidadorArquivo.ValidarId(idEmpresa, "empresa");
+            var extensao = ValidadorArquivo.ValidarEObtlerExtensao(arquivo, "capa de empresa");
 
-            if (idEmpresa <= 0)
-                throw new ArgumentException("Empresa inválida");
-
-            string extensao = Path.GetExtension(arquivo.FileName)?.ToLower();
-
-            if (string.IsNullOrEmpty(extensao) || !extensao.StartsWith("."))
-                throw new ArgumentException("Extensão inválida.");
-
-            string key = $"empresas/{idEmpresa}/capa{extensao}";
+            var chave = ValidadorArquivo.CriarChavenArquivo("empresas", idEmpresa, "capa", extensao);
 
             using var stream = arquivo.OpenReadStream();
-
-            return await _storageService.UploadAsync(
-                key,
-                stream,
-                arquivo.ContentType
-            );
+            return await _storageService.UploadAsync(chave, stream, arquivo.ContentType);
         }
+
+        #endregion
+
+        #region Buscar Empresas por Usuário
+
+        /// <summary>
+        /// Busca todas as empresas vinculadas a um usuário.
+        /// </summary>
         public async Task<IEnumerable<BuscarEmpresaResDto>> BuscarEmpresasVinculadoAoUsuario(int idUsuario)
         {
+            ValidadorArquivo.ValidarId(idUsuario, "usuário");
+
             var empresas = await _empresaRepositorio.BuscarEmpresasVinculadoAoUsuario(idUsuario);
+
             foreach (var empresa in empresas)
             {
-                var logoEmpresa = await BuscarLogoEmpresa(empresa.IdEmpresa);
-                if (logoEmpresa.IdEmpresa == empresa.IdEmpresa)
-                    empresa.UrlLogoEmpresa = logoEmpresa.Url;
-
-                var capaEmpresa = await BuscarCapaEmpresa(empresa.IdEmpresa);
-                if (capaEmpresa.IdEmpresa == empresa.IdEmpresa)
-                    empresa.UrlCapaEmpresa = capaEmpresa.Url;
-
+                await CarregarMidiasEmpresaAsync(empresa);
             }
+
             return _mapper.Map<IEnumerable<BuscarEmpresaResDto>>(empresas);
         }
 
+        #endregion
+
+        #region Métodos Privados
+
+        /// <summary>
+        /// Carrega logos e capas de uma empresa de forma segura.
+        /// </summary>
+        private async Task CarregarMidiasEmpresaAsync(Empresa empresa)
+        {
+            if (empresa == null) return;
+
+            var urlLogo = await _gerenciadorMidia.ObterMidiaAsync(empresa.IdEmpresa, "empresas", "logo");
+            if (!string.IsNullOrEmpty(urlLogo))
+                empresa.UrlLogoEmpresa = urlLogo;
+
+            var urlCapa = await _gerenciadorMidia.ObterMidiaAsync(empresa.IdEmpresa, "empresas", "capa");
+            if (!string.IsNullOrEmpty(urlCapa))
+                empresa.UrlCapaEmpresa = urlCapa;
+        }
 
         #endregion
     }
