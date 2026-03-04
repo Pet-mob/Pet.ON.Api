@@ -53,7 +53,7 @@ namespace Pet.ON.Api
                 app.UseDeveloperExceptionPage();
             }
 
-            app.UseCors("CorsPolicy");
+            app.UseCors("AllowMultipleClients");
 
             app.UseRouting();
 
@@ -78,10 +78,39 @@ namespace Pet.ON.Api
         {
             services.AddCors(options =>
             {
-                options.AddPolicy("CorsPolicy", builder =>
-                    builder.AllowAnyOrigin()
-                           .AllowAnyMethod()
-                           .AllowAnyHeader());
+
+                options.AddPolicy("AllowMultipleClients", builder =>
+                {
+                    builder
+                        .WithOrigins(
+                            "http://localhost:8080",
+                            "http://localhost:3000",
+                            "https://localhost:8080",
+                            "https://localhost:3000",
+                            "https://petmob.com.br",
+                            "https://www.petmob.com.br",
+                            "https://api.petmob.com.br",
+                            "https://petshop.petmob.com.br"
+                        )
+                        .AllowAnyMethod()
+                        .AllowAnyHeader()
+                        .AllowCredentials()
+                        .WithExposedHeaders(
+                            "X-Total-Count",
+                            "X-Pagination-Pages",
+                            "Authorization",
+                            "X-API-Version"
+                        );
+                });
+
+                options.AddPolicy("AllowMobileApps", builder =>
+                {
+                    builder
+                        .AllowAnyOrigin()
+                        .AllowAnyMethod()
+                        .AllowAnyHeader()
+                        .WithExposedHeaders("Authorization", "X-API-Version");
+                });
             });
         }
 
